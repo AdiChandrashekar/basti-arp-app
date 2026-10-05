@@ -82,6 +82,22 @@ export function HomeScreen({ data, t, id, month, months, latest, today, rep, nav
       {lagging && month === latest && <p className="note">{t.dataLag(t.month(monthRange(latest, today.slice(0, 7))[1]), t.month(latest))}</p>}
       <MonthStepper t={t} months={months} value={month} onChange={nav.setMonth} />
 
+      {recent.length > 0 && (
+        <div className="home-recent">
+          <SectionHead>{t.recentVisits}</SectionHead>
+          <div className="rows">
+            {recent.slice(0, 3).map((v) => <VisitRow key={v.id} v={v} data={data} t={t} nav={nav} id={id} />)}
+          </div>
+          {recent.length > 3 && (
+            <button className="btn-secondary btn-block" onClick={() => nav.open('visits')}>
+              {t.seeAllVisits(recent.length)} <Icon name="next" size={20} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {!n && <p className="empty">{t.nothingYet}</p>}
+
       <Card title={t.visitsCard} help="visits" t={t} nav={nav} tone={n >= target ? 'good' : 'warn'}>
         <div className="big-number">
           <b>{n}</b>
@@ -130,19 +146,6 @@ export function HomeScreen({ data, t, id, month, months, latest, today, rep, nav
         </Card>
       )}
 
-      <Card title={t.lastMonths} sub={t.targetLine(target)} help="visits" t={t} nav={nav}>
-        <MonthBars
-          target={target}
-          selected={month}
-          onSelect={nav.setMonth}
-          items={sixMonths.map((m) => ({
-            key: m,
-            label: t.monthShort(m),
-            value: data.months.includes(m) ? rep.byMonth.get(m)?.length || 0 : null,
-          }))}
-        />
-      </Card>
-
       {rep.needHelp.length > 0 && (
         <Card title={t.helpCard} sub={t.helpCardSub} help="helpWith" t={t} nav={nav}>
           <ul className="practice-list">
@@ -164,20 +167,18 @@ export function HomeScreen({ data, t, id, month, months, latest, today, rep, nav
         <p className="card-sub cal-key"><i aria-hidden /> {t.calendarKey}</p>
       </Card>
 
-      {recent.length > 0 && (
-        <>
-          <SectionHead>{t.recentVisits}</SectionHead>
-          <div className="rows">
-            {recent.slice(0, 3).map((v) => <VisitRow key={v.id} v={v} data={data} t={t} nav={nav} id={id} />)}
-          </div>
-          {recent.length > 3 && (
-            <button className="btn-secondary btn-block" onClick={() => nav.open('visits')}>
-              {t.seeAllVisits(recent.length)} <Icon name="next" size={20} />
-            </button>
-          )}
-        </>
-      )}
-      {!n && <p className="empty">{t.nothingYet}</p>}
+      <Card title={t.lastMonths} sub={t.targetLine(target)} help="visits" t={t} nav={nav}>
+        <MonthBars
+          target={target}
+          selected={month}
+          onSelect={nav.setMonth}
+          items={sixMonths.map((m) => ({
+            key: m,
+            label: t.monthShort(m),
+            value: data.months.includes(m) ? rep.byMonth.get(m)?.length || 0 : null,
+          }))}
+        />
+      </Card>
     </>
   )
 }
@@ -388,18 +389,19 @@ export function SearchSheet({ data, t, mentor, onPick, onClose }) {
 
 const KPI_GROUPS = ['fln', 'upper', 'school', 'mentor']
 
-function filterVisits(data, id, { month, cls, schools }) {
+function filterVisits(data, id, { month, cls, schools, school }) {
   const focusIds = new Set((data.adoptedBy.get(id) || []).map((s) => s.id))
   return mine(data, id).filter(
     (v) =>
       (month === 'all' || v.month === month) &&
       (!cls || classType(v) === cls) &&
-      (schools !== 'focus' || focusIds.has(v.school)),
+      (schools !== 'focus' || focusIds.has(v.school)) &&
+      (!school || v.school === +school),
   )
 }
 
 export function KpiScreen({ data, t, id, months, nav, filters }) {
-  const { month, cls, schools } = filters
+  const { month, cls, schools, school } = filters
   const visits = filterVisits(data, id, filters)
   const prevMonth = month === 'all' ? null : months[months.indexOf(month) - 1]
   const prev = prevMonth ? filterVisits(data, id, { ...filters, month: prevMonth }) : []
@@ -432,6 +434,31 @@ export function KpiScreen({ data, t, id, months, nav, filters }) {
             ]}
           />
         )}
+        <div className="chips">
+          <span className="chips-label">{t.oneSchool}</span>
+          {school && data.schools[+school] ? (
+            <>
+              <div className="chips-row">
+                <button className="chip on school-chip" onClick={() => nav.sheet({ kind: 'schoolPick', filters })}>
+                  <Icon name="school" size={18} />
+                  <span>{data.schools[+school].name}</span>
+                </button>
+                <button className="chip chip-icon" onClick={() => nav.setKpi({ s: '' })} aria-label={t.clearSchool}>
+                  <Icon name="cross" size={18} />
+                </button>
+              </div>
+              <button className="link-btn" onClick={() => nav.open('school', +school)}>
+                {t.openSchool} <Icon name="next" size={18} />
+              </button>
+            </>
+          ) : (
+            <div className="chips-row">
+              <button className="chip" onClick={() => nav.sheet({ kind: 'schoolPick', filters })}>
+                <Icon name="search" size={18} /> {t.chooseSchool}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {!visits.length ? (
@@ -537,6 +564,44 @@ export function KpiSheet({ data, t, id, kpi, visits, filters, months, onVisit, o
       ) : (
         <p className="status status-good"><Icon name="check" size={20} /> <span>{t.noneMissing}</span></p>
       )}
+    </Sheet>
+  )
+}
+
+// Pick one school to filter the KPI cards: the schools behind the current filters, most-visited first.
+export function SchoolPickSheet({ data, t, id, filters, onPick, onClose }) {
+  const [q, setQ] = useState('')
+  const focusIds = new Set((data.adoptedBy.get(id) || []).map((s) => s.id))
+  const needle = q.trim().toLowerCase()
+  const rows = [...groupBy(filterVisits(data, id, { ...filters, school: '' }), (v) => v.school)]
+    .map(([sid, vs]) => ({ s: data.schools[sid], n: vs.length }))
+    .filter((r) => !needle || r.s.name.toLowerCase().includes(needle))
+    .sort((a, b) => b.n - a.n || a.s.name.localeCompare(b.s.name))
+  return (
+    <Sheet title={t.chooseSchool} onClose={onClose} closeLabel={t.close}>
+      <p className="sheet-meta">{t.pickSchoolSub}</p>
+      <label className="search">
+        <Icon name="search" size={22} />
+        <input type="search" placeholder={t.searchSchool} value={q} onChange={(e) => setQ(e.target.value)} />
+      </label>
+      <div className="rows">
+        {!needle && (
+          <button className={`row row-compact${filters.school ? '' : ' row-selected'}`} onClick={() => onPick('')}>
+            <span className="row-text"><b>{t.allSchools}</b></span>
+            {!filters.school && <Icon name="check" />}
+          </button>
+        )}
+        {rows.map(({ s, n }) => (
+          <button key={s.id} className={`row row-compact${+filters.school === s.id ? ' row-selected' : ''}`} onClick={() => onPick(String(s.id))}>
+            <span className="row-text">
+              <b>{s.name}{focusIds.has(s.id) && <span className="tag"><Icon name="star" size={14} filled /> {t.focusBadge}</span>}</b>
+              <span>{t.classesN(n)}</span>
+            </span>
+            {+filters.school === s.id ? <Icon name="check" /> : <Icon name="next" />}
+          </button>
+        ))}
+        {!rows.length && <p className="muted-text">{t.noMatch}</p>}
+      </div>
     </Sheet>
   )
 }

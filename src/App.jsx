@@ -15,6 +15,7 @@ import {
   KpiScreen,
   KpiSheet,
   PlanScreen,
+  SchoolPickSheet,
   SchoolScreen,
   SearchSheet,
   VisitSheet,
@@ -82,6 +83,22 @@ export default function App() {
     else {
       sheetRef.current = null
       setSheetState(null)
+    }
+  }, [])
+
+  // Close the sheet, then act once the history entry it pushed is gone (so the action's URL sticks).
+  const closeSheetThen = useCallback((fn) => {
+    if (window.history.state?.sheet) {
+      const after = () => {
+        window.removeEventListener('popstate', after)
+        fn()
+      }
+      window.addEventListener('popstate', after)
+      window.history.back()
+    } else {
+      sheetRef.current = null
+      setSheetState(null)
+      fn()
     }
   }, [])
 
@@ -180,6 +197,7 @@ export default function App() {
       sheet={sheet}
       setSheet={setSheet}
       closeSheet={closeSheet}
+      closeSheetThen={closeSheetThen}
       lang={lang}
       setLang={setLang}
       choose={choose}
@@ -269,7 +287,7 @@ function Onboarding({ data, t, route, go, onChoose }) {
 
 // ---------- The app ----------
 
-function Main({ data, t, id, mentor, route, go, online, sheet, setSheet, closeSheet, lang, setLang, choose }) {
+function Main({ data, t, id, mentor, route, go, online, sheet, setSheet, closeSheet, closeSheetThen, lang, setLang, choose }) {
   const months = arpMonths(data)
   const latest = months[months.length - 1]
   const today = isoDate(new Date())
@@ -279,6 +297,7 @@ function Main({ data, t, id, mentor, route, go, online, sheet, setSheet, closeSh
     month: route.q.m === 'all' || months.includes(route.q.m) ? route.q.m : latest,
     cls: route.q.c || '',
     schools: route.q.f || '',
+    school: route.q.s || '',
   }
   const rep = useMemo(() => monthReport(data, id, month), [data, id, month])
   const plan = usePlan(id)
@@ -367,6 +386,9 @@ function Main({ data, t, id, mentor, route, go, online, sheet, setSheet, closeSh
           onVisit={(v) => setSheet({ kind: 'visit', v })}
           onClose={closeSheet}
         />
+      )}
+      {sheet?.kind === 'schoolPick' && (
+        <SchoolPickSheet data={data} t={t} id={id} filters={sheet.filters} onPick={(s) => closeSheetThen(() => nav.setKpi({ s }))} onClose={closeSheet} />
       )}
       {sheet?.kind === 'day' && <DaySheet data={data} t={t} sid={sheet.sid} today={today} plan={plan} onClose={closeSheet} />}
       {sheet?.kind === 'search' && <SearchSheet data={data} t={t} mentor={mentor} onPick={(sid) => setSheet({ kind: 'day', sid })} onClose={closeSheet} />}
