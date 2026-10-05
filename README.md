@@ -2,7 +2,9 @@
 
 A phone app for Basti ARPs, in Hindi or English. The first time, an ARP picks a language, their block and their name. The phone remembers these, and after that the app opens on their own month.
 
-**Live:** https://adichandrashekar.github.io/basti-arp-app/ (ARPs can add it to their home screen; it works offline with the last data it downloaded)
+**Live:** https://adichandrashekar.github.io/basti-arp-app/
+
+**Installing:** the app can be installed from the link. On Android/Chrome, the banner on Home (and "Install the app" in the profile sheet) opens Chrome's install dialog. Where Chrome doesn't offer it (inside WhatsApp, iPhone), it shows simple Hindi/English steps instead. Once installed, it opens from the home-screen icon ("ARP रिपोर्ट"), full-screen, offline with the last data, and updates itself. Icons: `public/icon-*.png` (drawn from `icon.svg`).
 
 ## Tabs
 

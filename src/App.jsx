@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadBasti } from './data.js'
 import { makeT } from './i18n.js'
 import { arpMonths, isoDate, monthReport } from './model.js'
+import { isIos, useInstall } from './install.js'
 import { usePlan } from './plan.js'
 import { Icon, initials, Sheet } from './ui.jsx'
 import {
@@ -301,6 +302,10 @@ function Main({ data, t, id, mentor, route, go, online, sheet, setSheet, closeSh
   }
   const rep = useMemo(() => monthReport(data, id, month), [data, id, month])
   const plan = usePlan(id)
+  const inst = useInstall()
+  const install = async () => {
+    if (!(await inst.prompt())) setSheet({ kind: 'install' })
+  }
 
   // The month travels with you between tabs; the KPI filters stay on the KPI tab.
   const q = month === latest ? {} : { m: month }
@@ -348,7 +353,24 @@ function Main({ data, t, id, mentor, route, go, online, sheet, setSheet, closeSh
       </header>
       {!online && <div className="offline" role="status">{t.offline}</div>}
 
-      <main className={`screen${sub ? ' screen-push' : ''}`} key={`${page}/${route.id}`}>{body}</main>
+      <main className={`screen${sub ? ' screen-push' : ''}`} key={`${page}/${route.id}`}>
+        {page === 'home' && !inst.installed && !inst.dismissed && (
+          <section className="install-banner">
+            <img src="icon-192.png" alt="" />
+            <div className="install-text">
+              <b>{t.installTitle}</b>
+              <span>{t.installSub}</span>
+              <div className="install-actions">
+                <button className="btn-primary" onClick={install}>
+                  <Icon name="plus" size={20} /> {t.installBtn}
+                </button>
+                <button className="link-btn" onClick={inst.dismiss}>{t.installLater}</button>
+              </div>
+            </div>
+          </section>
+        )}
+        {body}
+      </main>
 
       {!sub && (
         <nav className="tabbar">
@@ -369,6 +391,21 @@ function Main({ data, t, id, mentor, route, go, online, sheet, setSheet, closeSh
         </nav>
       )}
 
+      {sheet?.kind === 'install' && (
+        <Sheet title={t.installHow} onClose={closeSheet} closeLabel={t.close}>
+          <p className="note">{t.whatsappFirst}</p>
+          {(isIos() ? ['ios', 'android'] : ['android', 'ios']).map((os) => (
+            <div key={os} className="install-os">
+              <h3 className="sheet-label">{os === 'ios' ? t.iosTitle : t.androidTitle}</h3>
+              <ol className="steps">
+                {(os === 'ios' ? t.iosSteps : t.androidSteps).map((step, i) => (
+                  <li key={i}><span className="step-n">{i + 1}</span><span>{step}</span></li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </Sheet>
+      )}
       {sheet?.kind === 'help' && (
         <Sheet title={t.help} onClose={closeSheet} closeLabel={t.close}>
           <p className="sheet-text">{t.helpText[sheet.key]}</p>
@@ -427,6 +464,13 @@ function Main({ data, t, id, mentor, route, go, online, sheet, setSheet, closeSh
             <button className={lang === 'hi' ? 'on' : ''} aria-pressed={lang === 'hi'} onClick={() => setLang('hi')} lang="hi">हिंदी</button>
             <button className={lang === 'en' ? 'on' : ''} aria-pressed={lang === 'en'} onClick={() => setLang('en')} lang="en">English</button>
           </div>
+          {inst.installed ? (
+            <p className="status status-good"><Icon name="check" size={20} /> <span>{t.installDone}</span></p>
+          ) : (
+            <button className="list-btn list-btn-install" onClick={install}>
+              <Icon name="plus" /> <span>{t.installMenu}</span> <Icon name="next" />
+            </button>
+          )}
           <button className="list-btn" onClick={() => setSheet({ kind: 'allHelp' })}>
             <Icon name="help" /> <span>{t.helpTitle}</span> <Icon name="next" />
           </button>
