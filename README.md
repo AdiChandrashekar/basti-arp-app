@@ -24,7 +24,7 @@ npm install
 npm run dev
 ```
 
-`npm run deploy` builds the app and publishes `dist/` to the `gh-pages` branch, which GitHub Pages serves. Run it after committing a code change. Data updates don't need a deploy.
+Every push to `main` builds the app and publishes it to GitHub Pages (`.github/workflows/deploy.yml`). Data updates don't need a deploy.
 
 ## Privacy
 
