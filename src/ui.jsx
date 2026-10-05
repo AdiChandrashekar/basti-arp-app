@@ -19,6 +19,7 @@ const PATHS = {
   plus: <path d="M12 5v14M5 12h14" />,
   trash: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
   plan: <><rect x="4" y="4" width="16" height="17" rx="2" /><path d="M8 2v4M16 2v4M8 11h8M8 15h5" /></>,
+  tap: <><circle cx="12" cy="12" r="2.6" /><path d="M12 4.5a7.5 7.5 0 0 1 7.5 7.5M4.5 12A7.5 7.5 0 0 1 12 4.5" /></>,
   gauge: <><path d="M4 18a8 8 0 1 1 16 0" /><path d="M12 18l4-6" /></>,
 }
 
@@ -78,14 +79,30 @@ export function Chips({ label, options, value, onChange }) {
 }
 
 // A tappable number tile for the overview grids.
-export function Tile({ label, value, sub, tone, onClick }) {
+// `more` labels where a tappable tile leads, e.g. "See schools ›".
+export function Tile({ label, value, sub, tone, onClick, more }) {
   const Tag = onClick ? 'button' : 'div'
   return (
     <Tag className={`tile${tone ? ` tile-${tone}` : ''}${onClick ? ' tile-btn' : ''}`} onClick={onClick}>
       <span className="tile-label">{label}</span>
       <span className="tile-value">{value}</span>
       {sub && <span className="tile-sub">{sub}</span>}
+      {more && (
+        <span className="tile-more">
+          {more} <Icon name="next" size={14} />
+        </span>
+      )}
     </Tag>
+  )
+}
+
+// A small prompt telling the ARP that something below can be tapped to go deeper.
+export function Hint({ children }) {
+  return (
+    <p className="tap-hint">
+      <Icon name="tap" size={16} />
+      <span>{children}</span>
+    </p>
   )
 }
 
@@ -190,7 +207,8 @@ export function SchoolDots({ visited, total }) {
   )
 }
 
-export function Calendar({ t, month, counts }) {
+// Days with visits are buttons when onSelect is given.
+export function Calendar({ t, month, counts, onSelect }) {
   const [y, m] = month.split('-').map(Number)
   const days = new Date(y, m, 0).getDate()
   const first = (new Date(y, m - 1, 1).getDay() + 6) % 7 // Monday first
@@ -204,9 +222,15 @@ export function Calendar({ t, month, counts }) {
       ))}
       {cells.map((d, i) => {
         if (d == null) return <div key={`e${i}`} />
-        const n = counts.get(`${month}-${String(d).padStart(2, '0')}`) || 0
-        return (
-          <div key={d} className={`cal-day${n ? ' on' : ''}${n > 1 ? ' many' : ''}`} aria-label={`${d}: ${n}`}>
+        const key = `${month}-${String(d).padStart(2, '0')}`
+        const n = counts.get(key) || 0
+        const cls = `cal-day${n ? ' on' : ''}${n > 1 ? ' many' : ''}`
+        return n && onSelect ? (
+          <button key={d} className={`${cls} cal-btn`} onClick={() => onSelect(key)} aria-label={`${d}: ${n}`}>
+            {d}
+          </button>
+        ) : (
+          <div key={d} className={cls} aria-label={`${d}: ${n}`}>
             {d}
           </div>
         )

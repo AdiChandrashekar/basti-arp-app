@@ -308,6 +308,7 @@ function Main({ data, t, id, mentor, route, go, online, sheet, setSheet, closeSh
     tab: (p) => go({ page: p, q }),
     open: (p, pid) => go({ page: p, id: pid, q }, { push: true }),
     setMonth: (m) => go({ page, id: route.id, q: { ...route.q, m: m === latest ? '' : m } }),
+    openDay: (d) => go({ page: 'visits', q: { ...q, d } }, { push: true }),
     setKpi: (patch) => go({ page: 'kpi', q: { ...route.q, ...patch, m: (patch.m ?? route.q.m) === latest ? '' : patch.m ?? route.q.m } }),
     openKpi: (patch) => go({ page: 'kpi', q: { ...q, ...patch, m: (patch.m ?? month) === latest ? '' : patch.m ?? month } }),
     back: () => (window.history.state?.inApp ? window.history.back() : go({ page: PARENT[page] || 'home', q })),
@@ -320,7 +321,7 @@ function Main({ data, t, id, mentor, route, go, online, sheet, setSheet, closeSh
 
   let body
   if (page === 'school') body = <SchoolScreen {...props} sid={+route.id} />
-  else if (page === 'visits') body = <VisitsScreen {...props} />
+  else if (page === 'visits') body = <VisitsScreen {...props} day={route.q.d} />
   else if (page === 'plan') body = <PlanScreen {...props} />
   else if (page === 'kpi') body = <KpiScreen {...props} filters={kpiFilters} />
   else if (page === 'focus') body = <FocusScreen {...props} />

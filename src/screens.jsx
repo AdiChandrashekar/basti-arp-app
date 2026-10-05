@@ -1,5 +1,5 @@
 // The app's screens. Each gets { data, t, id, month, months, latest, today, rep, nav, plan }.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { groupBy } from './data.js'
 import {
   CLASS_TYPES,
@@ -20,7 +20,7 @@ import {
   visitPractices,
   workingDaysLeft,
 } from './model.js'
-import { Bar, Calendar, Chips, HelpButton, Icon, KpiCard, MonthBars, MonthStepper, SchoolDots, Sheet, Tile } from './ui.jsx'
+import { Bar, Calendar, Chips, HelpButton, Hint, Icon, KpiCard, MonthBars, MonthStepper, SchoolDots, Sheet, Tile } from './ui.jsx'
 
 const pctText = (p) => (p == null ? '—' : `${Math.round(p)}%`)
 const tone = (p) => (p == null ? undefined : p >= 80 ? 'good' : p >= 50 ? 'warn' : 'bad')
@@ -85,6 +85,7 @@ export function HomeScreen({ data, t, id, month, months, latest, today, rep, nav
       {recent.length > 0 && (
         <div className="home-recent">
           <SectionHead>{t.recentVisits}</SectionHead>
+          <Hint>{t.seeDetails}</Hint>
           <div className="rows">
             {recent.slice(0, 3).map((v) => <VisitRow key={v.id} v={v} data={data} t={t} nav={nav} id={id} />)}
           </div>
@@ -113,21 +114,23 @@ export function HomeScreen({ data, t, id, month, months, latest, today, rep, nav
       </Card>
 
       <div className="tiles">
-        <Tile label={t.tileDays} value={rep.days} onClick={() => nav.help('days')} />
-        <Tile label={t.tileSchools} value={rep.schools} onClick={() => nav.help('schools')} />
+        <Tile label={t.tileDays} value={rep.days} onClick={() => nav.open('visits')} more={rep.days ? t.moreVisits : null} />
+        <Tile label={t.tileSchools} value={rep.schools} onClick={() => nav.help('schools')} more={t.moreWhat} />
         {focus.total > 0 && focus.inScope && (
           <Tile
             label={t.tileFocus}
             value={`${focus.visited}/${focus.total}`}
             tone={focus.visited === focus.total ? 'good' : 'warn'}
             onClick={() => nav.tab('focus')}
+            more={t.moreSchools}
           />
         )}
-        <Tile label={t.tilePractice} value={pctText(rep.practice)} sub={t.tilePracticeSub} tone={tone(rep.practice)} onClick={() => nav.tab('kpi')} />
+        <Tile label={t.tilePractice} value={pctText(rep.practice)} sub={t.tilePracticeSub} tone={tone(rep.practice)} onClick={() => nav.tab('kpi')} more={t.moreKpis} />
       </div>
 
       {n > 0 && (
         <Card title={t.classMix} t={t} nav={nav}>
+          <Hint>{t.hintMix}</Hint>
           <ul className="mix">
             {[...CLASS_TYPES, 'other'].map((c) => {
               const k = rep.byType.get(c)?.length || 0
@@ -148,6 +151,7 @@ export function HomeScreen({ data, t, id, month, months, latest, today, rep, nav
 
       {rep.needHelp.length > 0 && (
         <Card title={t.helpCard} sub={t.helpCardSub} help="helpWith" t={t} nav={nav}>
+          <Hint>{t.hintPractice}</Hint>
           <ul className="practice-list">
             {rep.needHelp.map((r) => (
               <li key={r.id}>
@@ -163,11 +167,13 @@ export function HomeScreen({ data, t, id, month, months, latest, today, rep, nav
       )}
 
       <Card title={t.calendarTitle} help="days" t={t} nav={nav}>
-        <Calendar t={t} month={month} counts={new Map([...groupBy(rep.visits, (v) => v.date)].map(([d, vs]) => [d, vs.length]))} />
+        {rep.visits.length > 0 && <Hint>{t.hintCalendar}</Hint>}
+        <Calendar t={t} month={month} onSelect={nav.openDay} counts={new Map([...groupBy(rep.visits, (v) => v.date)].map(([d, vs]) => [d, vs.length]))} />
         <p className="card-sub cal-key"><i aria-hidden /> {t.calendarKey}</p>
       </Card>
 
       <Card title={t.lastMonths} sub={t.targetLine(target)} help="visits" t={t} nav={nav}>
+        <Hint>{t.hintMonths}</Hint>
         <MonthBars
           target={target}
           selected={month}
@@ -254,6 +260,7 @@ export function PlanScreen({ data, t, id, today, nav, plan }) {
         <>
           <SectionHead>{t.suggestFocus}</SectionHead>
           <p className="hint hint-tight">{t.suggestFocusSub}</p>
+          <Hint>{t.hintPlanSchool}</Hint>
           <div className="rows">
             {sug.focus.map((s) => (
               <SuggestRow key={s.sid} s={s} data={data} t={t} nav={nav} plan={plan} note={s.last ? t.youLast(t.date(s.last)) : t.neverVisited} focus />
@@ -469,6 +476,7 @@ export function KpiScreen({ data, t, id, months, nav, filters }) {
             <span>{t.basedOn(visits.length)}</span>
             <HelpButton t={t} onClick={() => nav.help('kpi')} />
           </div>
+          <Hint>{t.tapCard}</Hint>
           <Card t={t} nav={nav} tone={tone(practicePct(data, visits))}>
             <div className="card-head">
               <h2>{t.tilePractice}</h2>
@@ -505,7 +513,6 @@ export function KpiScreen({ data, t, id, months, nav, filters }) {
               </div>
             )
           })}
-          <p className="hint">{t.tapCard}</p>
         </>
       )}
     </>
@@ -645,13 +652,14 @@ export function FocusScreen({ data, t, id, month, months, rep, nav }) {
           </Card>
           <div className="tiles tiles-3">
             <Tile label={t.focusVisitsTile} value={focusVisits.length} />
-            <Tile label={t.focusPracticeTile} value={pctText(fp)} tone={tone(fp)} onClick={() => nav.openKpi({ f: 'focus', m: month })} />
+            <Tile label={t.focusPracticeTile} value={pctText(fp)} tone={tone(fp)} onClick={() => nav.openKpi({ f: 'focus', m: month })} more={t.moreKpis} />
             <Tile label={t.focusOverdueTile} value={overdue} tone={overdue ? 'bad' : 'good'} />
           </div>
 
           {weak.length > 0 && (
             <>
               <SectionHead>{t.focusKpis}</SectionHead>
+              <Hint>{t.tapCard}</Hint>
               <div className="kpi-grid">
                 {weak.map((c) => (
                   <KpiCard key={c.id} t={t} label={t.kpi(c.id)} pct={c.pct} yes={c.yes} n={c.n} onClick={() => nav.kpiSheet(c.id, focusVisits, { month, cls: '', schools: 'focus' })} />
@@ -664,6 +672,7 @@ export function FocusScreen({ data, t, id, month, months, rep, nav }) {
           )}
 
           <SectionHead>{t.schoolsList}</SectionHead>
+          <Hint>{t.hintFocusCards}</Hint>
           <div className="school-cards">
             {[...focus.todo, ...focus.done].map((r) => (
               <FocusCard key={r.school.id} r={r} data={data} t={t} nav={nav} from={from} month={month} />
@@ -774,6 +783,7 @@ export function SchoolScreen({ data, t, id, month, nav, plan, sid }) {
         <>
           <SectionHead>{t.schoolKpis}</SectionHead>
           <p className="hint hint-tight">{t.schoolKpisSub(st.all.length)}</p>
+          <Hint>{t.tapCard}</Hint>
           <div className="kpi-grid">
             {cards.map((c) => (
               <KpiCard key={c.id} t={t} label={t.kpi(c.id)} pct={c.pct} yes={c.yes} n={c.n} onClick={() => nav.kpiSheet(c.id, st.all)} />
@@ -784,9 +794,12 @@ export function SchoolScreen({ data, t, id, month, nav, plan, sid }) {
 
       <SectionHead>{t.history(from)}</SectionHead>
       {st.all.length ? (
-        <div className="rows">
-          {st.all.map((v) => <VisitRow key={v.id} v={v} data={data} t={t} nav={nav} showWho id={id} />)}
-        </div>
+        <>
+          <Hint>{t.seeDetails}</Hint>
+          <div className="rows">
+            {st.all.map((v) => <VisitRow key={v.id} v={v} data={data} t={t} nav={nav} showWho id={id} />)}
+          </div>
+        </>
       ) : (
         <p className="empty">{t.noVisitsYet(from)}</p>
       )}
@@ -798,16 +811,20 @@ export function SchoolScreen({ data, t, id, month, nav, plan, sid }) {
 // All my visits (from Home)
 // ======================================================================
 
-export function VisitsScreen({ data, t, id, month, months, rep, nav }) {
+export function VisitsScreen({ data, t, id, month, months, rep, nav, day }) {
   const byDate = [...groupBy(rep.visits, (v) => v.date)].sort((a, b) => b[0].localeCompare(a[0]))
+  // Opened from a calendar day: bring that day into view.
+  useEffect(() => {
+    if (day) document.getElementById(`day-${day}`)?.scrollIntoView({ block: 'start' })
+  }, [day])
   return (
     <>
       <MonthStepper t={t} months={months} value={month} onChange={nav.setMonth} />
       {byDate.length ? (
         <>
-          <p className="hint">{t.seeDetails}</p>
+          <Hint>{t.seeDetails}</Hint>
           {byDate.map(([d, vs]) => (
-            <div key={d}>
+            <div key={d} id={`day-${d}`} className={`day-group${d === day ? ' day-picked' : ''}`}>
               <SectionHead>{t.dayDate(d)}</SectionHead>
               <div className="rows">
                 {vs.map((v) => <VisitRow key={v.id} v={v} data={data} t={t} nav={nav} id={id} />)}
